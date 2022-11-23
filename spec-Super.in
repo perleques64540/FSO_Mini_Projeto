@@ -1,0 +1,11 @@
+###
+#This spec creates and formats a disk
+D disk0 100
+#Format args[1]= disk name, args[2]= sizeInArea, args[3]= clusterSize
+F disk0 1 1
+#Mount disk args[1]= disk name args[2]= debug if 1, not if 0
+M disk0 1
+U
+#Mount again and see if format is saved
+M disk0 1
+U

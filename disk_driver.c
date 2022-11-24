@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "disk_driver.h"
-#include "ffs_errno.h"
+#include "bfs_errno.h"
 
 static struct {
     int dfd; // Only 1 disk at a time supported; if != -1, a disk is "open"
@@ -65,7 +65,7 @@ static int disk_write_nc(unsigned int blknmbr, const unsigned char *buf, unsigne
     if (write(theDisk.dfd, buf, DISK_BLOCK_SIZE * reqblocks) == -1) return -1;
 
     return 0;
-}reqblocks;
+}
 
 
 static int disk_close_nc() {

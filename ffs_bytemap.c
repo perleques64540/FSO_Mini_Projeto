@@ -4,7 +4,7 @@
 #include <string.h>
 #include <assert.h>
 
-#include "ffs_errno.h"
+#include "bfs_errno.h"
 #include "disk_driver.h"
 
 extern struct disk_operations disk_ops;
@@ -58,6 +58,8 @@ int bytemap_print_table(unsigned int bmapIDX) {
 
     printf("Printing the %s bytemap ----------\n", msg);
 
+    int lastNLneeded= entriesLeft; // 20221121
+
     for (int block = blockStart; block <= blockEnd; block++) {
         ercode = disk_ops.read(block, bmap, 1);
         if (ercode < 0) return ercode;
@@ -70,6 +72,9 @@ int bytemap_print_table(unsigned int bmapIDX) {
         entriesLeft -= MIN(entriesLeft, DISK_BLOCK_SIZE);
         if (scan % 16) printf("\n"); // last NL for general case
     }
+
+    // 20221121
+    if ( lastNLneeded%16 ) printf("\n"); // last NL for a map (IDX or DATA)
 
     assert(entriesLeft == 0);
 
@@ -95,12 +100,12 @@ static void bytemap_mount(struct super *sb) {
     bmapMD[INODE_BMAP].BMbEnd = blockEnd;
     bmapMD[INODE_BMAP].BMentries = entriesLeft;
 
-    blockStart = /*** TODO ***/ 0;
-    blockEnd =   /*** TODO ***/ 0;
-    entriesLeft = /*** TODO ***/ 0;
-    bmapMD[DATA_BMAP].BMbStart = /*** TODO ***/ 0;
-    bmapMD[DATA_BMAP].BMbEnd = /*** TODO ***/ 0;
-    bmapMD[DATA_BMAP].BMentries = /*** TODO ***/ 0;
+    //blockStart = /*** TODO ***/ 0;
+    //blockEnd =   /*** TODO ***/ 0;
+    //entriesLeft = /*** TODO ***/ 0;
+    //bmapMD[DATA_BMAP].BMbStart = /*** TODO ***/ 0;
+    //bmapMD[DATA_BMAP].BMbEnd = /*** TODO ***/ 0;
+    //bmapMD[DATA_BMAP].BMentries = /*** TODO ***/ 0;
 }
 
 /***
@@ -121,13 +126,19 @@ static int bytemap_getfree(unsigned int bmapIDX) {
     unsigned int freeEntry = 0;
 
     if (bmapIDX == INODE_BMAP) {
-        blockStart = /*** TODO ***/ 0;
-        blockEnd =   /*** TODO ***/ 0;
-        entriesLeft = /*** TODO ***/ 0;
+        //blockStart = /*** TODO ***/ 0;
+        //blockEnd =   /*** TODO ***/ 0;
+        //entriesLeft = /*** TODO ***/ 0;
+        blockStart = bmapMD[INODE_BMAP].BMbStart;
+        blockEnd = bmapMD[INODE_BMAP].BMbEnd;
+        entriesLeft = bmapMD[INODE_BMAP].BMentries;
     } else {
-        blockStart = /*** TODO ***/ 0;
-        blockEnd =   /*** TODO ***/ 0;
-        entriesLeft = /*** TODO ***/ 0;
+        //blockStart = /*** TODO ***/ 0;
+        //blockEnd =   /*** TODO ***/ 0;
+        //entriesLeft = /*** TODO ***/ 0;
+        blockStart = bmapMD[DATA_BMAP].BMbStart;
+        blockEnd = bmapMD[DATA_BMAP].BMbEnd;
+        entriesLeft = bmapMD[DATA_BMAP].BMentries;
     }
 
     for (block = blockStart; block <= blockEnd; block++) {
@@ -135,8 +146,17 @@ static int bytemap_getfree(unsigned int bmapIDX) {
         if (ercode < 0) return ercode;
 
         /*** TODO find a free entry and, if found, return it ***/
-
+        
         entriesLeft -= MIN(entriesLeft, DISK_BLOCK_SIZE);
+        if(entriesLeft == 0){          
+          for(int i = 0; i <DISK_BLOCK_SIZE;i++){
+            if(bmap[i] == '0')
+              return freeEntry + i;  
+          }
+        }
+        
+        freeEntry += DISK_BLOCK_SIZE;  
+      
     }
 
     assert(entriesLeft == 0);
@@ -162,13 +182,19 @@ static int bytemap_set(unsigned int bmapIDX, unsigned int entry, \
     unsigned int blockStart, blockEnd, entriesLeft;
 
     if (bmapIDX == INODE_BMAP) {
-        blockStart = /*** TODO ***/ 0;
-        blockEnd =   /*** TODO ***/ 0;
-        entriesLeft = /*** TODO ***/ 0;
+        //blockStart = /*** TODO ***/ 0;
+        //blockEnd =   /*** TODO ***/ 0;
+        //entriesLeft = /*** TODO ***/ 0;
+        blockStart = bmapMD[INODE_BMAP].BMbStart;
+        blockEnd = bmapMD[INODE_BMAP].BMbEnd;
+        entriesLeft = bmapMD[INODE_BMAP].BMentries;
     } else {
-        blockStart = /*** TODO ***/ 0;
-        blockEnd =   /*** TODO ***/ 0;
-        entriesLeft = /*** TODO ***/ 0;
+        //blockStart = /*** TODO ***/ 0;
+        //blockEnd =   /*** TODO ***/ 0;
+        //entriesLeft = /*** TODO ***/ 0;
+        blockStart = bmapMD[DATA_BMAP].BMbStart;
+        blockEnd = bmapMD[DATA_BMAP].BMbEnd;
+        entriesLeft = bmapMD[DATA_BMAP].BMentries;
     }
 
     if (entry >= entriesLeft) return -EINVAL;
@@ -211,16 +237,16 @@ static int bytemap_clear(unsigned int bmapIDX, struct super *sb) {
     //	   however, the in-mem superblock is already populated
     //	  CAVEAT: That's only true if super_ops.create is executed FIRST
     if (bmapIDX == INODE_BMAP) {
-        blockStart = /*** TODO ***/ 0;
-        blockEnd =   /*** TODO ***/ 0;
+        blockStart = bmapMD[INODE_BMAP].BMbStart;
+        blockEnd = bmapMD[INODE_BMAP].BMbEnd;
     } else {
-        blockStart = /*** TODO ***/ 0;
-        blockEnd =   /*** TODO ***/ 0;
+       blockStart = bmapMD[DATA_BMAP].BMbStart;
+       blockEnd = bmapMD[DATA_BMAP].BMbEnd;
     }
 
     memset(bmap, FREE, DISK_BLOCK_SIZE);
     for (block = blockStart; block <= blockEnd; block++) {
-       // ercode = disk_ops.write(/*** TODO ***/ );
+       ercode = disk_ops.write(block,bmap,1);
         if (ercode < 0) return ercode;
     }
 

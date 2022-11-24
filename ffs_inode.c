@@ -18,11 +18,11 @@ extern struct disk_operations disk_ops;
 static int inode_location(unsigned int numinode, \
                  unsigned int *numblock, unsigned int *offset) {
 
-    if (numinode >= /*** TODO ***/ 0)
+    if (numinode >= super_ops.getTotalInodes)
         return -EINVAL;
 
-    *numblock =  /*** TODO ***/ 0;
-    *offset =  /*** TODO ***/ 0;
+    *numblock = numinode/INODES_PER_BLK;
+    *offset =  numinode - (INODES_PER_BLK*(*numblock));
 
     return 0;
 }
@@ -86,7 +86,7 @@ int inode_print_table(int validOnly) {
      @out: pointer to inode structure
 ***/
 static void inode_init(struct inode *in) {
-    //memset( /*** TODO ***/ );
+    memset(in,0,INODE_SIZE);
 }
 
 /***
@@ -106,13 +106,15 @@ static int inode_update(const unsigned int numinode, const struct inode *in) {
 
     // read inode block from disk into local mem
     /*** TODO ***/
+    ercode = disk_ops.read(block,&i_b,1);
     if (ercode < 0) return ercode;
 
     // merge inode into block
     /*** TODO ***/
-
+    memcpy(&i_b.ino[offset],in,INODE_SIZE);
     // write inode block to disk
     /*** TODO ***/
+    ercode = disk_ops.write(block,&i_b.data,1);
     if (ercode < 0) return ercode;
 
     return 0;
@@ -132,14 +134,17 @@ static int inode_read(unsigned int numinode, struct inode *in) {
     unsigned int block, offset;
     union u_inoBlk i_b;
 
-    if ( /*** TODO ***/0 < 0) return -EINVAL;
+    if ( inode_location( numinode,block,offset) < 0) return -EINVAL;
 
     // read inode block from disk into local mem
     /*** TODO ***/
+    ercode = disk_ops.read(block,&i_b,1);
     if (ercode < 0) return ercode;
+    
 
     // extract inode from block
-    //memcpy( /*** TODO ***/ );
+    memcpy(in,&i_b.ino[offset],INODE_SIZE);
+
 
     return 0;
 }
@@ -160,10 +165,10 @@ int inode_clear(struct super *sb) {
     unsigned char data[DISK_BLOCK_SIZE];
     memset(data, 0, DISK_BLOCK_SIZE);
 
-    unsigned int start = /*** TODO ***/ 0;
-    unsigned int end = /*** TODO ***/ 0;
+    unsigned int start = super_ops.getStartInArea;
+    unsigned int end = super_ops.getStartDtBmap;
     for (int block = start; block < end; block++)
-        if ((ercode =/*** TODO ***/ 0) < 0) return ercode;
+        if ((ercode = disk_ops.write(block,data,1)) < 0) return ercode;
 
     return 0;
 }

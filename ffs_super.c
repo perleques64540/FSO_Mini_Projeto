@@ -11,6 +11,10 @@ extern struct disk_operations disk_ops;
 extern struct bytemap_operations bmap_ops;
 
 #include "ffs_inode.h"
+#define SUPER_BLOCK_START 0
+#define BMAPINODES_START 1
+#define INODES_START 2
+#define INODES_PER_BLOCKS 32
 
 struct IMsuper ffs_IMsb; // one in-memory SB only
 
@@ -34,6 +38,41 @@ static void super_create(struct super *sb, unsigned int nblocks, \
     //sb->fsmagic = 
     //  etc
     /*** TODO ***/
+    
+    //total number of blocks minus the Inode area, the inode bitmaps and the super
+    int dt_blocks = nblocks - 2 - sizeInArea;
+
+    //The number of clusters in data field
+    int dt_cluster = dt_blocks/clusterSize;
+
+    //The number of blocks needed to bitmap for dt_cluster 
+    int bmap_dt_size = dt_cluster/DISK_BLOCK_SIZE + 1;                
+    
+    //The number of blocks left 
+    int resto = dt_blocks - dt_cluster * clusterSize;
+
+    //calculo de bit map de blocos de dados
+    if(resto < bmap_dt_size){     
+        bmap_dt_size = dt_cluster/DISK_BLOCK_SIZE + 1;                        
+        dt_cluster =  dt_cluster - (bmap_dt_size%clusterSize +1);
+    }        
+
+    int st_dt_bmap = INODES_START + sizeInArea; 
+
+    sb->fsmagic = FS_MAGIC;
+    sb->nblocks = nblocks;
+    sb->startInBmap = 1;
+    sb->sizeInBmap = 1;
+    sb->startInArea = INODES_START;
+    sb->sizeInArea = sizeInArea;
+    sb->ninodes = sizeInArea * INODES_PER_BLOCKS;
+    sb->startDtBmap = st_dt_bmap;
+    sb->sizeDtBmap = bmap_dt_size;
+    sb->clusterSize = clusterSize;
+    sb->startDtArea = st_dt_bmap + bmap_dt_size;
+    sb-> nclusters = dt_cluster;
+    sb -> mounted = 0;
+
 }
 
 
@@ -47,7 +86,7 @@ static int super_read(struct super *sb) {
     union u_sbBlk sb_u;
     int ercode;
 
-    ercode = disk_ops.read( /*** TODO ***/ );
+    ercode = disk_ops.read(0,sb_u.data,1);
     if (ercode < 0) return ercode;
 
     memcpy(sb, &sb_u.sb, sizeof(struct super));
@@ -66,13 +105,14 @@ static int super_write(struct super *sb) {
     int ercode;
 
     memset(sb_u.data, 0, DISK_BLOCK_SIZE);    // clean...
-    memcpy( /*** TODO ***/ );
+    memcpy(sb_u.data,sb,sizeof(struct super));
 
-    ercode = disk_ops.write( /*** TODO ***/ );
+    ercode = disk_ops.write(0,sb_u.data,1);
     if (ercode < 0) return ercode;
 
     return 0;
 }
+
 
 
 /***
@@ -87,16 +127,16 @@ static int super_write(struct super *sb) {
 static int super_mount(char *diskname, struct IMsuper *imSB, int debug) {
     int ercode;
 
-    ercode = disk_ops.open(/*** TODO ***/);
+    ercode = disk_ops.open(diskname,0);
     if (ercode < 0) return ercode;
 
-    ercode = super_read(/*** TODO ***/);
+    ercode = super_read(&imSB->sb);
     if (ercode < 0) return ercode;
 
     if (debug) super_debug(imSB, 1); // Debug before mounting
 
-    imSB->sb.mounted = /*** TODO ***/ ;
-    ercode = super_write(/*** TODO ***/);
+    imSB->sb.mounted = 1;
+    ercode = super_write(&imSB->sb);
     if (ercode < 0) return ercode;
 
     if (debug) super_debug(imSB, 1); // Debug after mounting
@@ -119,13 +159,13 @@ static int super_umount(struct IMsuper *imSB) {
     int ercode;
 
     imSB->sb.mounted = 0;
-    ercode = super_write(/*** TODO ***/);
+    ercode = super_write(&imSB->sb);
     if (ercode < 0) return ercode;
 
     ercode = disk_ops.close();
     if (ercode < 0) return ercode;
 
-    memset(/*** TODO ***/));
+    memset(imSB,0,sizeof(struct IMsuper));
 
     return 0;
 }
